@@ -1,0 +1,8 @@
+{
+  "name": "cldy_update_role",
+  "version": "1.0.0",
+  "description": "Cloudability Role Organizations StackSet Instance Updater for NodeJS",
+  "main": "app.js",
+  "author": "Christian Meyer <cmeyer@prosiebensat1.com>",
+  "dependencies": {}
+}

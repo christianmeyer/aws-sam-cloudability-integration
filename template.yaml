@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for deploying the Cloudability Worker state machine and it's depending resources
+Parameters:
+  CloudabilityKey:
+    Type: String
+    Description: The Cloudability API authorization key (https://developers.cloudability.com/docs/getting-started#authentication)
+  CloudabilityApiBaseUri:
+    Type: String
+    Default: https://api.cloudability.com/v3/vendors/AWS/accounts
+    Description: The Cloudability Vendor Credentials End Point (AWS) Base URI
+  CloudformationStackSetName:
+    Type: String
+    Description: The name of the CloudFormation StackSet used to maintain the Cloudability Templates accross the Organization
+  LambdaLogRetentionInDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+    Description: The number of days to retain the log events in the specified log group.
+    ConstraintDescription: Possible values are 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+
+Resources:
+  CldyStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/cldy_worker.asl.json
+      DefinitionSubstitutions:
+        CldyListAccountsFunctionArn: !GetAtt CldyListAccountsFunction.Arn
+        CldyCreateCredentialsFunctionArn: !GetAtt CldyCreateCredentialsFunction.Arn
+        CldyUpdateRoleFunctionArn: !GetAtt CldyUpdateRoleFunction.Arn
+        CldyUpdateRoleStatusFunctionArn: !GetAtt CldyUpdateRoleStatusFunction.Arn
+        CldyVerifyCredentialsFunctionArn: !GetAtt CldyVerifyCredentialsFunction.Arn
+      Events:
+        DailyWorkerSchedule:
+          Type: Schedule
+          Properties:
+            Description: Schedule to run the cloudability worker state machine every day
+            Enabled: False # This schedule is disabled by default to avoid incurring charges.
+            Schedule: "rate(1 day)"
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CldyListAccountsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CldyCreateCredentialsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CldyUpdateRoleFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CldyUpdateRoleStatusFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CldyVerifyCredentialsFunction
+
+  CldyListAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/cldy_list_accounts/
+      Handler: app.lambda_handler
+      Runtime: ruby2.7
+      Environment:
+        Variables:
+          CLDY_KEY: !Ref CloudabilityKey
+          BASE_URI: !Ref CloudabilityApiBaseUri
+          PAYER_ID: !Ref AWS::AccountId
+
+  CldyListAccountsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CldyListAccountsFunction}"
+      RetentionInDays: !Ref LambdaLogRetentionInDays
+
+  CldyCreateCredentialsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/cldy_create_credentials/
+      Handler: app.lambda_handler
+      Runtime: ruby2.7
+      Environment:
+        Variables:
+          CLDY_KEY: !Ref CloudabilityKey
+          BASE_URI: !Ref CloudabilityApiBaseUri
+
+  CldyCreateCredentialsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CldyCreateCredentialsFunction}"
+      RetentionInDays: !Ref LambdaLogRetentionInDays
+
+  CldyUpdateRoleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/cldy_update_role/
+      Handler: app.lambdaHandler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          STACK_SET_NAME: !Ref CloudformationStackSetName
+      Policies:
+      - Statement:
+        - Sid: CFUpdateStackInstancesPolicy
+          Effect: Allow
+          Action:
+          - cloudformation:UpdateStackInstances
+          Resource:
+          - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stackset/${CloudformationStackSetName}:*
+          - !Sub arn:aws:cloudformation::${AWS::AccountId}:stackset-target/${CloudformationStackSetName}:*
+          - !Sub arn:aws:cloudformation:${AWS::Region}::type/resource/AWS-IAM-Role
+
+  CldyUpdateRoleFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CldyUpdateRoleFunction}"
+      RetentionInDays: !Ref LambdaLogRetentionInDays
+
+  CldyUpdateRoleStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/cldy_update_role_status/
+      Handler: app.lambdaHandler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          STACK_SET_NAME: !Ref CloudformationStackSetName
+      Policies:
+      - Statement:
+        - Sid: CFDescribeStackSetOperationPolicy
+          Effect: Allow
+          Action:
+          - cloudformation:DescribeStackSetOperation
+          Resource:
+          - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stackset/${CloudformationStackSetName}:*
+
+  CldyUpdateRoleStatusFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CldyUpdateRoleStatusFunction}"
+      RetentionInDays: !Ref LambdaLogRetentionInDays
+
+  CldyVerifyCredentialsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/cldy_verify_credentials/
+      Handler: app.lambda_handler
+      Runtime: ruby2.7
+      Environment:
+        Variables:
+          CLDY_KEY: !Ref CloudabilityKey
+          BASE_URI: !Ref CloudabilityApiBaseUri
+
+  CldyVerifyCredentialsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CldyVerifyCredentialsFunction}"
+      RetentionInDays: !Ref LambdaLogRetentionInDays
+
+Outputs:
+  CloudabilityStateMachineArn:
+    Description: "Cloudability Worker state machine ARN"
+    Value: !Ref CldyStateMachine
+  CloudabilityStateMachineRole:
+    Description: "IAM Role created for Cloudability Worker state machine based on the specified SAM Policy Templates"
+    Value: !GetAtt CldyStateMachineRole.Arn

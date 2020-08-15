@@ -1,0 +1,157 @@
+{
+  "StartAt": "RetrieveAccounts",
+  "States": {
+    "RetrieveAccounts": {
+      "Type": "Task",
+      "Resource": "${CldyListAccountsFunctionArn}",
+      "OutputPath": "$.body",
+      "Next": "ProcessAccounts",
+      "Retry": [{
+        "ErrorEquals": [ "States.Timeout" ],
+        "IntervalSeconds": 1,
+        "BackoffRate": 2.0,
+        "MaxAttempts": 3
+      }],
+      "Catch": [{
+        "ErrorEquals": [ "States.ALL" ],
+        "Next": "Terminate"
+      }],
+    },
+    "Terminate": {
+      "Type": "Fail"
+    },
+    "ProcessAccounts": {
+      "Type": "Map",
+      "ItemsPath": "$",
+      "MaxConcurrency": 1,
+      "Iterator": {
+        "StartAt": "ProcessAccountsChoice",
+        "States": {
+          "ProcessAccountsChoice": {
+            "Type": "Choice",
+            "Choices": [{
+              "Variable": "$.itemState",
+              "StringEquals": "noCredentials",
+              "Next": "CreateCredentials"
+            }, {
+              "Variable": "$.itemState",
+              "StringEquals": "unVerified",
+              "Next": "UpdateStackSetInstance"
+            }],
+            "Default": "NoItems"
+          },
+          "NoItems": {
+            "Type": "Succeed"
+          },
+          "CreateCredentials": {
+            "Type": "Task",
+            "Resource": "${CldyCreateCredentialsFunctionArn}",
+            "OutputPath": "$.body",
+            "Retry": [{
+              "ErrorEquals": [ "States.Timeout" ],
+              "IntervalSeconds": 1,
+              "BackoffRate": 2.0,
+              "MaxAttempts": 3
+            }],
+            "Catch": [{
+              "ErrorEquals": [ "States.ALL" ],
+              "Next": "CreateCredentialsFail"
+            }],
+            "Next": "UpdateStackSetInstance"
+          },
+          "CreateCredentialsFail": {
+            "Type": "Fail"
+          },
+          "UpdateStackSetInstance": {
+            "Type": "Task",
+            "Resource": "${CldyUpdateRoleFunctionArn}",
+            "OutputPath": "$.body",
+            "Retry": [{
+              "ErrorEquals": [ "States.Timeout" ],
+              "IntervalSeconds": 1,
+              "BackoffRate": 2.0,
+              "MaxAttempts": 3
+            }],
+            "Catch": [{
+              "ErrorEquals": [ "StackInstanceNotFoundException" ],
+              "Next": "UpdateStackSetInstancePass"
+            }, {
+              "ErrorEquals": [ "States.ALL" ],
+              "Next": "UpdateStackSetInstanceFail"
+            }],
+            "Next": "UpdateStackSetInstanceStatus"
+          },
+          "UpdateStackSetInstanceFail": {
+            "Type": "Fail"
+          },
+          "UpdateStackSetInstancePass": {
+            "Type": "Pass",
+            "Result": "The referred AWS AccountId is not (yet) part of the master payer account StackSet.",
+            "End": true
+          },
+          "UpdateStackSetInstanceStatus": {
+            "Type": "Task",
+            "Resource": "${CldyUpdateRoleStatusFunctionArn}",
+            "OutputPath": "$.body",
+            "Retry": [{
+              "ErrorEquals": [ "States.Timeout" ],
+              "IntervalSeconds": 1,
+              "BackoffRate": 2.0,
+              "MaxAttempts": 3
+            }],
+            "Catch": [{
+              "ErrorEquals": [ "States.ALL" ],
+              "Next": "UpdateStackSetInstanceStatusFail"
+            }],
+            "Next": "UpdateStackSetInstanceStatusChoice"
+          },
+          "UpdateStackSetInstanceStatusFail": {
+            "Type": "Fail"
+          },
+          "UpdateStackSetInstanceStatusChoice": {
+            "Type": "Choice",
+            "Choices": [{
+              "Variable": "$.operationState",
+              "StringEquals": "SUCCEEDED",
+              "Next": "VerifyCredentials"
+            }, {
+              "Variable": "$.operationState",
+              "StringEquals": "FAILED",
+              "Next": "UpdateStackSetInstanceStatusFail"
+            }, {
+              "Variable": "$.operationState",
+              "StringEquals": "STOPPED",
+              "Next": "UpdateStackSetInstanceStatusFail"
+            }],
+            "Default": "UpdateStackSetInstanceStatusWait"
+          },
+          "UpdateStackSetInstanceStatusWait": {
+            "Type": "Wait",
+            "Seconds": 5,
+            "Next": "UpdateStackSetInstanceStatus"
+          },
+          "VerifyCredentials": {
+            "Type": "Task",
+            "Resource": "${CldyVerifyCredentialsFunctionArn}",
+            "OutputPath": "$.body",
+            "Retry": [{
+              "ErrorEquals": [ "States.Timeout" ],
+              "IntervalSeconds": 1,
+              "BackoffRate": 2.0,
+              "MaxAttempts": 3
+            }],
+            "Catch": [{
+              "ErrorEquals": [ "States.ALL" ],
+              "Next": "VerifyCredentialsFail"
+            }],
+            "End": true
+          },
+          "VerifyCredentialsFail": {
+            "Type": "Fail"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}

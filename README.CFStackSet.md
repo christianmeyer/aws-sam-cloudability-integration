@@ -139,5 +139,5 @@
       --stack-set-name 'ApptioCloudability' \
       --deployment-targets OrganizationalUnitIds='{{aws-organizations-root-id}}' \
       --regions us-east-1 \
-      --operation-preferences RegionOrder=us-east-1,FailureToleranceCount=0,MaxConcurrentCount=50
+      --operation-preferences RegionOrder=us-east-1,FailureToleranceCount=50,MaxConcurrentCount=50
     ```

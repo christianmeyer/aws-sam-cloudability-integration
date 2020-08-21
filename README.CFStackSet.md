@@ -127,6 +127,7 @@
 4. create an organization wide stackset
     ```bash
     aws cloudformation create-stack-set \
+      --region us-east-1 \
       --stack-set-name 'ApptioCloudability' \
       --description 'Creates the Cloudability Role for a Linked Account' \
       --template-url https://{{aws-organizations-cf-governance-bucket}}.s3.amazonaws.com/cf-cloudability-role.yaml \
@@ -134,6 +135,7 @@
       --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false
 
     aws cloudformation create-stack-instances \
+      --region us-east-1 \
       --stack-set-name 'ApptioCloudability' \
       --deployment-targets OrganizationalUnitIds='{{aws-organizations-root-id}}' \
       --regions us-east-1 \

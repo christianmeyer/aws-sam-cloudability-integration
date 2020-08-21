@@ -33,7 +33,7 @@
 
 3. upload cloudability template
     ```bash
-    aws s3api put-object --bucket {{aws-organizations-cf-governance-bucket}} --key cf-cloudability-role.yaml --body file://cf-cloudability-role.yaml
+    aws s3api put-object --bucket {{aws-organizations-cf-governance-bucket}} --key cf-cloudability-role.yaml --body cf-cloudability-role.yaml
     ```
 
     cf-cloudability-role.yaml:

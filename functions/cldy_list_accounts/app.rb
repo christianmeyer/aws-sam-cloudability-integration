@@ -27,6 +27,6 @@ def lambda_handler(event:, context:)
   unVerified = result.select{ |h| h.key?('authorization') && !h.fetch('verification', {}).fetch('state', '').eql?('verified') }.map{ |h| h.merge('itemState' => 'unVerified') }
   return {
     statusCode: response.code,
-    body: [].concat(noCredentials).concat(unVerified)
+    body: [].concat(noCredentials).concat(unVerified).slice(0, 100)
   }
 end

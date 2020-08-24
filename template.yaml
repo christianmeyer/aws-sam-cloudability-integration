@@ -56,6 +56,7 @@ Resources:
       CodeUri: functions/cldy_list_accounts/
       Handler: app.lambda_handler
       Runtime: ruby2.7
+      Timeout: 10
       Environment:
         Variables:
           CLDY_KEY: !Ref CloudabilityKey
@@ -74,6 +75,7 @@ Resources:
       CodeUri: functions/cldy_create_credentials/
       Handler: app.lambda_handler
       Runtime: ruby2.7
+      Timeout: 10
       Environment:
         Variables:
           CLDY_KEY: !Ref CloudabilityKey
@@ -91,6 +93,7 @@ Resources:
       CodeUri: functions/cldy_update_role/
       Handler: app.lambdaHandler
       Runtime: nodejs12.x
+      Timeout: 10
       Environment:
         Variables:
           STACK_SET_NAME: !Ref CloudformationStackSetName
@@ -117,6 +120,7 @@ Resources:
       CodeUri: functions/cldy_update_role_status/
       Handler: app.lambdaHandler
       Runtime: nodejs12.x
+      Timeout: 10
       Environment:
         Variables:
           STACK_SET_NAME: !Ref CloudformationStackSetName
@@ -141,6 +145,7 @@ Resources:
       CodeUri: functions/cldy_verify_credentials/
       Handler: app.lambda_handler
       Runtime: ruby2.7
+      Timeout: 10
       Environment:
         Variables:
           CLDY_KEY: !Ref CloudabilityKey

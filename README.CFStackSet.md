@@ -131,6 +131,7 @@
       --stack-set-name 'ApptioCloudability' \
       --description 'Creates the Cloudability Role for a Linked Account' \
       --template-url https://{{aws-organizations-cf-governance-bucket}}.s3.amazonaws.com/cf-cloudability-role.yaml \
+      --capabilities CAPABILITY_NAMED_IAM \
       --permission-model SERVICE_MANAGED \
       --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false
 
